@@ -151,9 +151,10 @@ async def on_startup(bot: Bot):
 async def handle_webhook(request):
     try:
         update = await request.json()
+        logger.info(f"Получено обновление: {update.get('update_id', 'unknown')}")
         await dp.feed_webhook_update(bot, update)
     except Exception as e:
-        logger.error(f"Ошибка вебхука: {e}")
+        logger.error(f"Ошибка вебхука: {e}", exc_info=True)
     return web.Response(text="OK")
 
 async def handle_health(request):
@@ -165,7 +166,9 @@ app.router.add_get("/", handle_health)
 
 async def main():
     dp.include_router(router)
-    dp.startup.register(on_startup)
+    
+    # Устанавливаем вебхук
+    await on_startup(bot)
     
     port = int(os.getenv("PORT", 8000))
     runner = web.AppRunner(app)
@@ -175,7 +178,6 @@ async def main():
     logger.info(f"Запуск на порту {port}")
     await site.start()
     
-    # Держим цикл активным
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
