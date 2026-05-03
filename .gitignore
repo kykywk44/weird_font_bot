@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Bot data
+bot.log
+settings.json
+users.json
+users_export.txt
+
+# Test files
+test_*.py
+
+# OS
+.DS_Store
+Thumbs.db
