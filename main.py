@@ -12,8 +12,8 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import (Message, CallbackQuery, FSInputFile,
-                           InlineKeyboardMarkup, InlineKeyboardButton,
+from aiogram.types import (Message, CallbackQuery, FSInputFile, 
+                           InlineKeyboardMarkup, InlineKeyboardButton, 
                            LinkPreviewOptions, MessageEntity)
 
 # ==================== КОНФИГУРАЦИЯ ====================
@@ -23,7 +23,7 @@ if not BOT_TOKEN:
 
 ADMIN_ID = int(os.getenv("ADMIN_ID", "855323286"))
 FONT_FILE_NAME = os.getenv("FONT_FILE_NAME", "font.ttf")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Например: https://weird-font-bot.onrender.com
+WEBHOOK_URL = os.getenv("WEBHOOK_URL") # Например: https://weird-font-bot.onrender.com
 
 # Настройка логирования
 logging.basicConfig(
@@ -45,10 +45,8 @@ router = Router()
 USERS_DB_FILE = "users.json"
 SETTINGS_FILE = "settings.json"
 
-
 class AdminState(StatesGroup):
     waiting_for_welcome_text = State()
-
 
 # ==================== БАЗА ДАННЫХ И НАСТРОЙКИ ====================
 
@@ -62,14 +60,12 @@ def load_json(filename, default_factory):
         logger.error(f"Ошибка загрузки {filename}: {e}")
         return default_factory()
 
-
 def save_json(filename, data):
     try:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Ошибка сохранения {filename}: {e}")
-
 
 def entities_to_html(text: str, entities: list) -> str:
     """Конвертирует форматирование Telegram в HTML строку"""
@@ -80,16 +76,14 @@ def entities_to_html(text: str, entities: list) -> str:
     for e in entities:
         positions.add(max(0, e.offset))
         positions.add(max(0, min(e.offset + e.length, len(text))))
-
+    
     sorted_positions = sorted(list(positions))
     tag_priority = {'bold': 0, 'italic': 1, 'underline': 2, 'strikethrough': 3, 'code': 4, 'pre': 5, 'text_link': 7}
 
     def open_tag(e):
         tags = {'bold': '<b>', 'italic': '<i>', 'underline': '<u>', 'strikethrough': '<s>', 'code': '<code>', 'pre': '<pre>'}
-        if e.type in tags:
-            return tags[e.type]
-        if e.type == 'text_link':
-            return f'<a href="{e.url}">'
+        if e.type in tags: return tags[e.type]
+        if e.type == 'text_link': return f'<a href="{e.url}">'
         return ''
 
     def close_tag(e):
@@ -101,15 +95,12 @@ def entities_to_html(text: str, entities: list) -> str:
         start, end = sorted_positions[i], sorted_positions[i+1]
         covering = [e for e in entities if e.offset <= start and (e.offset + e.length) >= end]
         covering.sort(key=lambda e: tag_priority.get(e.type, 99))
-
-        for e in covering:
-            result.append(open_tag(e))
+        
+        for e in covering: result.append(open_tag(e))
         result.append(text[start:end].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
-        for e in reversed(covering):
-            result.append(close_tag(e))
-
+        for e in reversed(covering): result.append(close_tag(e))
+    
     return ''.join(result)
-
 
 # ==================== ОБРАБОТЧИКИ ====================
 
@@ -124,10 +115,9 @@ async def cmd_start(message: Message):
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Я ознакомлен и согласен", callback_data="accept_license")]])
     settings = load_json(SETTINGS_FILE, lambda: {"welcome_text": None})
-
+    
     text = settings.get("welcome_text") or "Привет! Ознакомьтесь с лицензией перед скачиванием шрифта."
     await message.answer(text, reply_markup=keyboard, link_preview_options=LinkPreviewOptions(is_disabled=True))
-
 
 @router.callback_query(F.data == "accept_license")
 async def accept_license(callback: CallbackQuery):
@@ -138,14 +128,11 @@ async def accept_license(callback: CallbackQuery):
         await callback.message.answer("Файл шрифта временно недоступен. Свяжитесь с @bykvv")
     await callback.answer()
 
-
 @router.message(Command("setwelcome"))
 async def cmd_setwelcome(message: Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID:
-        return
+    if message.from_user.id != ADMIN_ID: return
     await message.answer("Отправьте текст нового приветствия с любым форматированием:")
     await state.set_state(AdminState.waiting_for_welcome_text)
-
 
 @router.message(AdminState.waiting_for_welcome_text)
 async def process_welcome_text(message: Message, state: FSMContext):
@@ -154,58 +141,12 @@ async def process_welcome_text(message: Message, state: FSMContext):
     await message.answer("✅ Приветствие обновлено!")
     await state.clear()
 
-
-@router.message(Command("stats"))
-async def cmd_stats(message: Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    db = load_json(USERS_DB_FILE, dict)
-    users = list(db.items())
-    total = len(users)
-    text = f"📊 Статистика: {total} пользователей\n\n"
-    for uid, data in users[:20]:
-        name = data.get("username") or data.get("first_name", uid)
-        text += f"• {name}\n"
-    await message.answer(text, link_preview_options=LinkPreviewOptions(is_disabled=True))
-
-
-@router.message(Command("export"))
-async def cmd_export(message: Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    db = load_json(USERS_DB_FILE, dict)
-    if not db:
-        await message.answer("База пуста.")
-        return
-    export_file = "users_export.txt"
-    with open(export_file, 'w', encoding='utf-8') as f:
-        for uid, data in db.items():
-            f.write(f"{uid} | {data.get('username') or '-'} | {data.get('first_name') or '-'}\n")
-    await message.answer_document(FSInputFile(export_file))
-    os.remove(export_file)
-
-
-@router.message(F.document)
-async def handle_document(message: Message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    file = message.document
-    if not file.file_name.lower().endswith(('.ttf', '.otf')):
-        await message.answer("Отправьте файл шрифта (.ttf или .otf)")
-        return
-    file_path = await bot.download(file)
-    with open(FONT_FILE_NAME, 'wb') as f:
-        f.write(file_path.getvalue())
-    await message.answer("✅ Шрифт обновлен!")
-
-
 # ==================== WEBHOOK & SERVER ====================
 
 async def on_startup(bot: Bot):
     if WEBHOOK_URL:
         await bot.set_webhook(f"{WEBHOOK_URL}/webhook", drop_pending_updates=True)
         logger.info(f"Вебхук установлен: {WEBHOOK_URL}/webhook")
-
 
 async def handle_webhook(request):
     try:
@@ -215,31 +156,27 @@ async def handle_webhook(request):
         logger.error(f"Ошибка вебхука: {e}")
     return web.Response(text="OK")
 
-
 async def handle_health(request):
     return web.Response(text="OK")
-
 
 app = web.Application()
 app.router.add_post("/webhook", handle_webhook)
 app.router.add_get("/", handle_health)
 
-
 async def main():
     dp.include_router(router)
     dp.startup.register(on_startup)
-
+    
     port = int(os.getenv("PORT", 8000))
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
-
+    
     logger.info(f"Запуск на порту {port}")
     await site.start()
-
+    
     # Держим цикл активным
     await asyncio.Event().wait()
-
 
 if __name__ == "__main__":
     try:
