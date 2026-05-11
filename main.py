@@ -141,6 +141,60 @@ async def process_welcome_text(message: Message, state: FSMContext):
     await message.answer("✅ Приветствие обновлено!")
     await state.clear()
 
+
+@router.message(Command("stats"))
+async def cmd_stats(message: Message):
+    """Статистика бота"""
+    if message.from_user.id != ADMIN_ID:
+        return
+    db = load_json(USERS_DB_FILE, dict)
+    users = list(db.items())
+    total = len(users)
+    text = f"📊 Статистика бота\n\nВсего пользователей: {total}\n\n"
+    for uid, data in users:
+        name = data.get("username") or data.get("first_name", uid)
+        text += f"• @{name}\n"
+    await message.answer(text, link_preview_options=LinkPreviewOptions(is_disabled=True))
+
+
+@router.message(Command("export"))
+async def cmd_export(message: Message):
+    """Экспорт пользователей"""
+    if message.from_user.id != ADMIN_ID:
+        return
+    db = load_json(USERS_DB_FILE, dict)
+    if not db:
+        await message.answer("База пользователей пуста.")
+        return
+    export_file = "users_export.txt"
+    try:
+        with open(export_file, 'w', encoding='utf-8') as f:
+            f.write(f"Всего пользователей: {len(db)}\n\n")
+            for uid, data in db.items():
+                username = data.get("username") or "-"
+                first_name = data.get("first_name") or "-"
+                f.write(f"{uid} | @{username} | {first_name}\n")
+        await message.answer_document(FSInputFile(export_file))
+        os.remove(export_file)
+    except Exception as e:
+        logger.error(f"Ошибка экспорта: {e}")
+        await message.answer("Ошибка экспорта")
+
+
+@router.message(F.document)
+async def handle_document(message: Message):
+    """Обработка загрузки шрифта"""
+    if message.from_user.id != ADMIN_ID:
+        return
+    file = message.document
+    if not file.file_name.lower().endswith(('.ttf', '.otf')):
+        await message.answer("Отправьте файл шрифта (.ttf или .otf)")
+        return
+    file_path = await bot.download(file)
+    with open(FONT_FILE_NAME, 'wb') as f:
+        f.write(file_path.getvalue())
+    await message.answer("✅ Шрифт обновлен!")
+
 # ==================== WEBHOOK & SERVER ====================
 
 async def on_startup(bot: Bot):
