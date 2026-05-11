@@ -123,9 +123,13 @@ async def cmd_start(message: Message):
 async def accept_license(callback: CallbackQuery):
     font_path = Path(FONT_FILE_NAME)
     if font_path.exists():
+        await callback.message.answer("Спасибо за согласие! Вот ваш файл шрифта:")
         await callback.message.answer_document(FSInputFile(FONT_FILE_NAME), caption="Ваш файл шрифта.")
     else:
         await callback.message.answer("Файл шрифта временно недоступен. Свяжитесь с @bykvv")
+    
+    # Удаляем кнопку из сообщения
+    await callback.message.edit_reply_markup(reply_markup=None)
     await callback.answer()
 
 @router.message(Command("setwelcome"))
